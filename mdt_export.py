@@ -398,7 +398,7 @@ def export_curvas_nivel(
     for lname, color, lw in [
         ('CURVAS_NORMALES', 3, 13),
         ('CURVAS_MAESTRAS', 1, 40),
-        ('CURVAS_TEXTOS',   7,  0),
+        ('CURVAS_TEXTOS', 7, 0),
     ]:
         lay = doc.layers.new(lname)
         lay.color = color
@@ -470,8 +470,8 @@ def export_curvas_nivel(
                 if min_longitud > 0:
                     import math as _math
                     lon = sum(
-                        _math.hypot(pts[k+1][0]-pts[k][0], pts[k+1][1]-pts[k][1])
-                        for k in range(len(pts)-1)
+                        _math.hypot(pts[k + 1][0] - pts[k][0], pts[k + 1][1] - pts[k][1])
+                        for k in range(len(pts) - 1)
                     )
                     if lon < min_longitud:
                         return

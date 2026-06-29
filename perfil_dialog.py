@@ -21,7 +21,7 @@ from qgis.PyQt.QtWidgets import (
     QFrame,
 )
 from qgis.PyQt.QtCore import QThread, pyqtSignal, QUrl, QSettings
-from qgis.PyQt.QtGui import QFont, QDesktopServices
+from qgis.PyQt.QtGui import QDesktopServices
 
 
 AXIS_FORMATS = (
@@ -155,6 +155,49 @@ QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled {{
 }}
 QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus {{
     border: 1px solid {accent};
+}}
+QSpinBox::up-button, QDoubleSpinBox::up-button {{
+    subcontrol-origin: border;
+    subcontrol-position: top right;
+    width: 16px;
+    border-left: 1px solid {border};
+    border-bottom: 1px solid {border};
+    border-top-right-radius: 3px;
+    background: {button_bg};
+}}
+QSpinBox::down-button, QDoubleSpinBox::down-button {{
+    subcontrol-origin: border;
+    subcontrol-position: bottom right;
+    width: 16px;
+    border-left: 1px solid {border};
+    border-top: 1px solid {border};
+    border-bottom-right-radius: 3px;
+    background: {button_bg};
+}}
+QSpinBox::up-button:hover, QDoubleSpinBox::up-button:hover,
+QSpinBox::down-button:hover, QDoubleSpinBox::down-button:hover {{
+    background: {button_bg_hover};
+}}
+QSpinBox::up-arrow, QDoubleSpinBox::up-arrow {{
+    image: none;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-bottom: 5px solid {fg};
+}}
+QSpinBox::down-arrow, QDoubleSpinBox::down-arrow {{
+    image: none;
+    width: 0;
+    height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 5px solid {fg};
+}}
+QSpinBox::up-arrow:disabled, QDoubleSpinBox::up-arrow:disabled,
+QSpinBox::down-arrow:disabled, QDoubleSpinBox::down-arrow:disabled {{
+    border-bottom-color: {fg_disabled};
+    border-top-color: {fg_disabled};
 }}
 QPushButton {{
     background: {button_bg};
@@ -687,7 +730,8 @@ class PerfilLongitudinalDialog(QDialog):
         self.le_folder = QLineEdit()
         self.le_folder.setPlaceholderText("Carpeta con los MDTs (GeoTIFF, ASC, IMG, BIL, FLT, DEM, HGT)")
         g1.addWidget(self.le_folder, 0, 1)
-        b = QPushButton("…"); b.setMaximumWidth(32)
+        b = QPushButton("…")
+        b.setMaximumWidth(32)
         b.clicked.connect(self._browse_folder)
         g1.addWidget(b, 0, 2)
 
@@ -695,7 +739,8 @@ class PerfilLongitudinalDialog(QDialog):
         self.le_axis = QLineEdit()
         self.le_axis.setPlaceholderText("DXF, SHP, KML/KMZ, GeoPackage, GML, GPX, GeoJSON")
         g1.addWidget(self.le_axis, 1, 1)
-        b2 = QPushButton("…"); b2.setMaximumWidth(32)
+        b2 = QPushButton("…")
+        b2.setMaximumWidth(32)
         b2.clicked.connect(self._browse_axis)
         g1.addWidget(b2, 1, 2)
 
@@ -706,7 +751,8 @@ class PerfilLongitudinalDialog(QDialog):
         self.le_outdir = QLineEdit()
         self.le_outdir.setPlaceholderText("Carpeta donde se guardarán los archivos generados")
         g1.addWidget(self.le_outdir, 3, 1)
-        b3 = QPushButton("…"); b3.setMaximumWidth(32)
+        b3 = QPushButton("…")
+        b3.setMaximumWidth(32)
         b3.clicked.connect(self._browse_outdir)
         g1.addWidget(b3, 3, 2)
 
@@ -772,7 +818,7 @@ class PerfilLongitudinalDialog(QDialog):
         layout.addWidget(self.chk_gen_longitudinal)
 
         self.grp_longitudinal = QGroupBox("Parámetros del perfil longitudinal")
-        
+
         g = QGridLayout(self.grp_longitudinal)
         g.setSpacing(6)
 
@@ -885,7 +931,7 @@ class PerfilLongitudinalDialog(QDialog):
         layout.addWidget(self.chk_gen_transversales)
 
         self.grp_trans = QGroupBox("Parámetros de transversales")
-        
+
         self.grp_trans.setEnabled(False)
         g = QGridLayout(self.grp_trans)
         g.setSpacing(6)
@@ -927,7 +973,7 @@ class PerfilLongitudinalDialog(QDialog):
         g.addWidget(self.sp_trans_step, 3, 1)
 
         sep = QLabel("── Escalas del DXF de transversales ──────────────────────")
-        
+
         g.addWidget(sep, 4, 0, 1, 2)
 
         g.addWidget(QLabel("Escala horizontal  1:"), 5, 0)
@@ -1012,7 +1058,7 @@ class PerfilLongitudinalDialog(QDialog):
         layout.addWidget(self.chk_gen_mdt_buffer)
 
         self.grp_mdt_buf = QGroupBox("Parámetros del buffer MDT")
-        
+
         self.grp_mdt_buf.setEnabled(False)
         g = QGridLayout(self.grp_mdt_buf)
         g.setSpacing(6)
@@ -1057,7 +1103,7 @@ class PerfilLongitudinalDialog(QDialog):
         layout.addWidget(self.chk_gen_curvas)
 
         self.grp_curvas = QGroupBox("Parámetros de curvas de nivel")
-        
+
         self.grp_curvas.setEnabled(False)
         g = QGridLayout(self.grp_curvas)
         g.setSpacing(6)
@@ -1149,13 +1195,13 @@ class PerfilLongitudinalDialog(QDialog):
 
     def _toggle_cplane(self, auto_checked):
         self.sp_cplane.setEnabled(not auto_checked)
-        
+
         if not auto_checked:
             self.sp_cplane.setFocus()
 
     def _toggle_equidistant(self, use_eq):
         self.sp_equidistant.setEnabled(use_eq)
-        
+
         if use_eq:
             self.sp_equidistant.setFocus()
 
@@ -1424,13 +1470,13 @@ class PerfilLongitudinalDialog(QDialog):
             if os.path.exists(trans_path):
                 lines.append(f"  {lbl}_transversales.dxf")
 
-        lines.append(f"  perfiles_ejes3d.dxf")
+        lines.append("  perfiles_ejes3d.dxf")
         if result.get('output_dxf3d_eq'):
             lines.append(f"  {os.path.basename(result['output_dxf3d_eq'])}")
         if result.get('output_mdt_buffer'):
-            lines.append(f"  mdt_buffer.tif")
+            lines.append("  mdt_buffer.tif")
         if result.get('output_curvas'):
-            lines.append(f"  curvas_nivel.dxf")
+            lines.append("  curvas_nivel.dxf")
 
         title = "Completado con errores" if had_partial_error else "Proceso completado"
         if had_partial_error:

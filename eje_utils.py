@@ -819,7 +819,7 @@ def resample_axis_3d_equidistant(pts_3d, interval, sampler):
             break
 
         p_prev = pts_3d[j - 1] if j > 0 else pts_3d[0]
-        p_cur  = pts_3d[j]
+        p_cur = pts_3d[j]
         d0_seg = p_prev[3]
         d1_seg = p_cur[3]
 
@@ -915,9 +915,9 @@ def _equidistant_pk_points(pts_3d, interval, sampler, tol=0.05):
 
 
 def export_all_axes_3d_dxf(axes_list, output_path, equidistant_interval=0.0,
-                            sampler=None, mark_size=_EJE3D_MARK_SIZE,
-                            text_height=_EJE3D_TEXT_HEIGHT,
-                            clean_equidistant=False):
+                           sampler=None, mark_size=_EJE3D_MARK_SIZE,
+                           text_height=_EJE3D_TEXT_HEIGHT,
+                           clean_equidistant=False):
     """
     Exporta VARIOS ejes 3D planchados a un único DXF de planta.
 
