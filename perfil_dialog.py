@@ -21,7 +21,7 @@ from qgis.PyQt.QtWidgets import (
     QFrame,
 )
 from qgis.PyQt.QtCore import QThread, pyqtSignal, QUrl, QSettings
-from qgis.PyQt.QtGui import QFont, QDesktopServices
+from qgis.PyQt.QtGui import QDesktopServices
 
 
 AXIS_FORMATS = (
@@ -38,7 +38,7 @@ AXIS_FORMATS = (
 def _next_profile_name(output_dir, base="perfil"):
     i = 1
     while True:
-        candidate = os.path.join(output_dir, f"{base}{i}.dxf")
+        candidate = os.path.join(output_dir, f"{base}{i}.dx")
         if not os.path.exists(candidate):
             return f"{base}{i}"
         i += 1
@@ -65,11 +65,11 @@ _THEMES = {
         check_border='#8489a8',
     ),
     'light': dict(
-        bg='#f4f4f8', panel='#ffffff', border='#c7c9d6', fg='#1c1d27',
+        bg='#f4f4f8', panel='#fffff', border='#c7c9d6', fg='#1c1d27',
         fg_disabled='#9a9cab',
-        field_bg='#ffffff', field_fg='#1c1d27',
+        field_bg='#fffff', field_fg='#1c1d27',
         field_bg_disabled='#ececf2', field_fg_disabled='#9a9cab',
-        tab_bg='#e7e8ef', accent='#1A5276', muted='#5b5d6c', warn='#c0392b',
+        tab_bg='#e7e8e', accent='#1A5276', muted='#5b5d6c', warn='#c0392b',
         button_bg='#e9e9f0', button_bg_hover='#dadce6', theme_btn_bg='#e9e9f0',
         check_border='#6b6e80',
     ),
@@ -333,7 +333,7 @@ class ProfileWorker(QThread):
                 self.progress.emit(pct_start,
                                    f"Procesando eje {eje_idx + 1}/{n_axes}: {current_base}...")
 
-                output_perfil_dxf = os.path.join(output_dir, f"{current_base}.dxf")
+                output_perfil_dxf = os.path.join(output_dir, f"{current_base}.dx")
                 output_csv = os.path.join(output_dir, f"{current_base}.csv")
 
                 bbox = get_axis_bbox(vertices_2d)
@@ -362,7 +362,7 @@ class ProfileWorker(QThread):
                     try:
                         from .transversal_dxf import export_transversales_dxf
                         out_trans = os.path.join(
-                            output_dir, f"{current_base}_transversales.dxf")
+                            output_dir, f"{current_base}_transversales.dx")
 
                         def _trans_p(pct_t, msg):
                             self.progress.emit(
@@ -440,7 +440,7 @@ class ProfileWorker(QThread):
                     'label': eje_label,
                     'terrain_3d': terrain_3d,
                     'orig_indices': orig_indices,
-                    'output_perfil_dxf': output_perfil_dxf,
+                    'output_perfil_dx': output_perfil_dxf,
                     'output_csv': output_csv,
                     'comp_plane_final': comp_plane_final,
                     'n_mdts': len(affected),
@@ -466,7 +466,7 @@ class ProfileWorker(QThread):
 
             try:
                 # ── DXF ejes 3D (vértices originales + marcas de PK) ──────
-                output_dxf3d = os.path.join(output_dir, "perfiles_ejes3d.dxf")
+                output_dxf3d = os.path.join(output_dir, "perfiles_ejes3d.dx")
                 try:
                     export_all_axes_3d_dxf(
                         all_axes_3d, output_dxf3d,
@@ -482,7 +482,7 @@ class ProfileWorker(QThread):
                 if gen_eje3d_eq:
                     seg_int = p.get('interval', 1.0)
                     output_dxf3d_eq = os.path.join(
-                        output_dir, f"perfiles_ejes3d_eq{seg_int:.1f}m.dxf")
+                        output_dir, f"perfiles_ejes3d_eq{seg_int:.1f}m.dx")
                     self.progress.emit(
                         93, f"Generando eje 3D equidistante: vértice cada {seg_int} m...")
                     try:
@@ -507,7 +507,7 @@ class ProfileWorker(QThread):
                 self.progress.emit(95, f"Exportando MDT con buffer {buf} m (siguiendo trazado)...")
                 try:
                     from .mdt_export import export_mdt_buffer
-                    output_mdt_buffer = os.path.join(output_dir, "mdt_buffer.tif")
+                    output_mdt_buffer = os.path.join(output_dir, "mdt_buffer.ti")
                     all_verts = [r['vertices_2d'] for r in all_results]
 
                     def _mdt_p(pct, msg):
@@ -536,7 +536,7 @@ class ProfileWorker(QThread):
                     geotiff_src = output_mdt_buffer
                     if not geotiff_src or not os.path.exists(geotiff_src):
                         buf_curvas = p.get('mdt_buffer_m', 100.0)
-                        geotiff_src = os.path.join(output_dir, "mdt_buffer_curvas.tif")
+                        geotiff_src = os.path.join(output_dir, "mdt_buffer_curvas.ti")
                         all_verts = [r['vertices_2d'] for r in all_results]
 
                         def _mdt_p2(pct, msg):
@@ -550,7 +550,7 @@ class ProfileWorker(QThread):
                             progress_callback=_mdt_p2,
                         )
 
-                    output_curvas = os.path.join(output_dir, "curvas_nivel.dxf")
+                    output_curvas = os.path.join(output_dir, "curvas_nivel.dx")
 
                     def _curvas_p(pct, msg):
                         self.progress.emit(97 + int(pct * 0.02), msg)
@@ -591,7 +591,7 @@ class ProfileWorker(QThread):
         except PermissionError as e:
             self.error.emit(str(e))
         except (ModuleNotFoundError, ImportError) as e:
-            if 'ezdxf' in str(e):
+            if 'ezdx' in str(e):
                 self.error.emit(
                     "No se pudo instalar 'ezdxf' automáticamente.\n\n"
                     "Instálala desde OSGeo4W Shell (como Administrador):\n"
@@ -687,7 +687,8 @@ class PerfilLongitudinalDialog(QDialog):
         self.le_folder = QLineEdit()
         self.le_folder.setPlaceholderText("Carpeta con los MDTs (GeoTIFF, ASC, IMG, BIL, FLT, DEM, HGT)")
         g1.addWidget(self.le_folder, 0, 1)
-        b = QPushButton("…"); b.setMaximumWidth(32)
+        b = QPushButton("…")
+        b.setMaximumWidth(32)
         b.clicked.connect(self._browse_folder)
         g1.addWidget(b, 0, 2)
 
@@ -695,7 +696,8 @@ class PerfilLongitudinalDialog(QDialog):
         self.le_axis = QLineEdit()
         self.le_axis.setPlaceholderText("DXF, SHP, KML/KMZ, GeoPackage, GML, GPX, GeoJSON")
         g1.addWidget(self.le_axis, 1, 1)
-        b2 = QPushButton("…"); b2.setMaximumWidth(32)
+        b2 = QPushButton("…")
+        b2.setMaximumWidth(32)
         b2.clicked.connect(self._browse_axis)
         g1.addWidget(b2, 1, 2)
 
@@ -706,7 +708,8 @@ class PerfilLongitudinalDialog(QDialog):
         self.le_outdir = QLineEdit()
         self.le_outdir.setPlaceholderText("Carpeta donde se guardarán los archivos generados")
         g1.addWidget(self.le_outdir, 3, 1)
-        b3 = QPushButton("…"); b3.setMaximumWidth(32)
+        b3 = QPushButton("…")
+        b3.setMaximumWidth(32)
         b3.clicked.connect(self._browse_outdir)
         g1.addWidget(b3, 3, 2)
 
@@ -772,7 +775,7 @@ class PerfilLongitudinalDialog(QDialog):
         layout.addWidget(self.chk_gen_longitudinal)
 
         self.grp_longitudinal = QGroupBox("Parámetros del perfil longitudinal")
-        
+
         g = QGridLayout(self.grp_longitudinal)
         g.setSpacing(6)
 
@@ -885,7 +888,7 @@ class PerfilLongitudinalDialog(QDialog):
         layout.addWidget(self.chk_gen_transversales)
 
         self.grp_trans = QGroupBox("Parámetros de transversales")
-        
+
         self.grp_trans.setEnabled(False)
         g = QGridLayout(self.grp_trans)
         g.setSpacing(6)
@@ -927,7 +930,7 @@ class PerfilLongitudinalDialog(QDialog):
         g.addWidget(self.sp_trans_step, 3, 1)
 
         sep = QLabel("── Escalas del DXF de transversales ──────────────────────")
-        
+
         g.addWidget(sep, 4, 0, 1, 2)
 
         g.addWidget(QLabel("Escala horizontal  1:"), 5, 0)
@@ -1012,7 +1015,7 @@ class PerfilLongitudinalDialog(QDialog):
         layout.addWidget(self.chk_gen_mdt_buffer)
 
         self.grp_mdt_buf = QGroupBox("Parámetros del buffer MDT")
-        
+
         self.grp_mdt_buf.setEnabled(False)
         g = QGridLayout(self.grp_mdt_buf)
         g.setSpacing(6)
@@ -1057,7 +1060,7 @@ class PerfilLongitudinalDialog(QDialog):
         layout.addWidget(self.chk_gen_curvas)
 
         self.grp_curvas = QGroupBox("Parámetros de curvas de nivel")
-        
+
         self.grp_curvas.setEnabled(False)
         g = QGridLayout(self.grp_curvas)
         g.setSpacing(6)
@@ -1149,13 +1152,13 @@ class PerfilLongitudinalDialog(QDialog):
 
     def _toggle_cplane(self, auto_checked):
         self.sp_cplane.setEnabled(not auto_checked)
-        
+
         if not auto_checked:
             self.sp_cplane.setFocus()
 
     def _toggle_equidistant(self, use_eq):
         self.sp_equidistant.setEnabled(use_eq)
-        
+
         if use_eq:
             self.sp_equidistant.setFocus()
 
@@ -1380,17 +1383,17 @@ class PerfilLongitudinalDialog(QDialog):
         for r in all_res:
             lbl = r['label']
             lines.append(f"  {lbl}.dxf  /  {lbl}.csv")
-            trans_path = os.path.join(outdir, f"{lbl}_transversales.dxf")
+            trans_path = os.path.join(outdir, f"{lbl}_transversales.dx")
             if os.path.exists(trans_path):
-                lines.append(f"  {lbl}_transversales.dxf")
+                lines.append(f"  {lbl}_transversales.dx")
 
-        lines.append(f"  perfiles_ejes3d.dxf")
+        lines.append(f"  perfiles_ejes3d.dx")
         if result.get('output_dxf3d_eq'):
             lines.append(f"  {os.path.basename(result['output_dxf3d_eq'])}")
         if result.get('output_mdt_buffer'):
-            lines.append(f"  mdt_buffer.tif")
+            lines.append("  mdt_buffer.tif")
         if result.get('output_curvas'):
-            lines.append(f"  curvas_nivel.dxf")
+            lines.append("  curvas_nivel.dxf")
 
         title = "Completado con errores" if had_partial_error else "Proceso completado"
         if had_partial_error:
