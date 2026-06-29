@@ -95,8 +95,12 @@ def _get_mdt_paths_intersecting(mdt_list, xmin, ymin, xmax, ymax):
     """Filtra MDTs que intersectan con la bbox dada."""
     return [
         m['path'] for m in mdt_list
-        if m['xmax'] >= xmin and m['xmin'] <= xmax
-        and m['ymax'] >= ymin and m['ymin'] <= ymax
+        if all((
+            m['xmax'] >= xmin,
+            m['xmin'] <= xmax,
+            m['ymax'] >= ymin,
+            m['ymin'] <= ymax,
+        ))
     ]
 
 
@@ -208,6 +212,22 @@ def export_mdt_buffer(
     if progress_callback:
         progress_callback(50, "Recortando MDT con buffer del trazado...")
 
+    # Si ya existe un GeoTIFF previo en esa ruta (p.ej. de una ejecución
+    # anterior) lo borramos explícitamente con el driver de GDAL antes de
+    # generarlo de nuevo. Si está bloqueado -porque está abierto como capa
+    # en QGIS o en otro programa- lo detectamos aquí con un mensaje claro,
+    # en vez de dejar que falle dentro de gdal.Warp con un RuntimeError
+    # críptico de "Permission denied".
+    if os.path.exists(output_path):
+        try:
+            gdal.GetDriverByName('GTiff').Delete(output_path)
+        except Exception:
+            raise RuntimeError(
+                f"No se puede sobrescribir '{output_path}'.\n"
+                "El archivo está abierto en QGIS (como capa) o bloqueado por "
+                "otro programa. Cierra la capa/archivo e inténtalo de nuevo."
+            )
+
     # Warp con cutline (recorte por la forma real del buffer)
     warp_opts = gdal.WarpOptions(
         format='GTiff',
@@ -259,9 +279,11 @@ def _chaikin_smooth(pts, iterations=2):
     Rápido, sin dependencias externas y produce curvas muy parecidas a las
     de programas profesionales.
     """
-    closed = (len(pts) >= 2 and
-              abs(pts[0][0] - pts[-1][0]) < 1e-6 and
-              abs(pts[0][1] - pts[-1][1]) < 1e-6)
+    closed = all((
+        len(pts) >= 2,
+        abs(pts[0][0] - pts[-1][0]) < 1e-6,
+        abs(pts[0][1] - pts[-1][1]) < 1e-6,
+    ))
 
     for _ in range(iterations):
         new_pts = []
@@ -376,7 +398,7 @@ def export_curvas_nivel(
     for lname, color, lw in [
         ('CURVAS_NORMALES', 3, 13),
         ('CURVAS_MAESTRAS', 1, 40),
-        ('CURVAS_TEXTOS', 7, 0),
+        ('CURVAS_TEXTOS',   7,  0),
     ]:
         lay = doc.layers.new(lname)
         lay.color = color
@@ -403,10 +425,10 @@ def export_curvas_nivel(
                 f"Curva {level:.2f} m ({i + 1}/{n_levels})..."
             )
 
-        is_maestra = (
-            abs(round(level / equidistancia_maestra) * equidistancia_maestra - level)
-            < equidistancia * 0.01
+        nearest_diff = abs(
+            round(level / equidistancia_maestra) * equidistancia_maestra - level
         )
+        is_maestra = nearest_diff < equidistancia * 0.01
         dxf_layer = 'CURVAS_MAESTRAS' if is_maestra else 'CURVAS_NORMALES'
         color = 1 if is_maestra else 3
 
@@ -448,8 +470,8 @@ def export_curvas_nivel(
                 if min_longitud > 0:
                     import math as _math
                     lon = sum(
-                        _math.hypot(pts[k +1][0] -pts[k][0], pts[k +1][1] -pts[k][1])
-                        for k in range(len(pts) -1)
+                        _math.hypot(pts[k+1][0]-pts[k][0], pts[k+1][1]-pts[k][1])
+                        for k in range(len(pts)-1)
                     )
                     if lon < min_longitud:
                         return

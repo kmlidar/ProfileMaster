@@ -19,7 +19,6 @@ try:
 except ImportError:
     raise ImportError("GDAL no disponible.")
 
-
 def _format_pk(dist):
     """Formatea distancia como PK estándar: 0+860, 1+150, etc."""
     if dist is None or dist < 0:
@@ -29,6 +28,8 @@ def _format_pk(dist):
     if abs(m - round(m)) < 1e-6:
         return f"{km}+{int(round(m)):03d}"
     return f"{km}+{m:06.2f}"
+
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
