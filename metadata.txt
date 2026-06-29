@@ -1,0 +1,42 @@
+[general]
+name=ProfileMaster
+qgisMinimumVersion=3.16
+qgisMaximumVersion=4.99
+description=Longitudinal profiles, cross-sections, 3D axis, DTM buffer and contour lines from vector alignments over Digital Terrain Models. / Perfiles longitudinales, transversales, eje 3D, buffer MDT y curvas de nivel.
+version=1.1.0
+author=Kiko Molina
+email=tu@email.com
+about=QGIS plugin to generate topographic longitudinal profiles from vector alignments
+    and Digital Terrain Models (GeoTIFF, ASC, IMG, BIL, FLT, DEM, HGT — any GDAL-supported format).
+
+    Supported alignment formats: DXF, SHP, KML, KMZ, GeoPackage, GML, GPX, GeoJSON.
+    Automatic CRS reprojection (e.g. WGS84 axis over UTM DTM).
+
+    Main features:
+    - Smart DTM cache: scans folder once, reuses the index for subsequent runs.
+    - Automatic detection of DTM tiles intersecting the alignment.
+    - Bilinear interpolation of terrain elevations along the axis.
+    - Configurable segmentation interval (e.g. 1 m for smooth profiles).
+    - Longitudinal profile in standard topographic style: terrain line, comparison plane,
+      partial/total distances in PK format (0+860) and elevations at original vertices.
+    - Independent horizontal and vertical scales.
+    - Automatic or fixed comparison plane.
+    - DXF export with polylines, annotations and data table (guitar).
+    - CSV export with partial/total distances and elevations.
+    - Cross-section profiles: configurable spacing, width and scale. DXF grid layout
+      with terrain, axis, PK, comparison plane and elevation table.
+    - 3D axis export: original vertices with PK labels (horizontal text, no Z annotation)
+      plus optional clean 3D polyline draped on DTM at segmentation interval.
+    - DTM buffer export: GeoTIFF clipped to alignment bounding box + buffer, LZW-compressed.
+    - Contour lines: DXF with normal and master contours, Chaikin smoothing,
+      and minimum-length filter to suppress tiny closed contours.
+
+tracker=https://github.com/kmlidar/ProfileMaster/issues
+repository=https://github.com/kmlidar/ProfileMaster
+tags=DTM, DEM, MDT, longitudinal profile, cross section, transversal, contour, contour lines, curvas de nivel, DXF, SHP, KML, GeoTIFF, terrain, topography, alignment, road profile, perfil longitudinal, trazado, 3D axis, profile
+homepage=https://github.com/kmlidar/ProfileMaster
+donate=https://www.paypal.com/donate/?hosted_button_id=UF9SYUY42GWTG
+category=Vector
+icon=icons/icon.png
+experimental=False
+deprecated=False

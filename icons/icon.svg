@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="8" fill="#1A3A5C"/>
+  <!-- Terreno -->
+  <polyline points="4,52 12,44 22,38 30,42 40,28 50,22 60,26 60,56 4,56"
+            fill="#5D8A5E" stroke="none"/>
+  <!-- Línea de terreno -->
+  <polyline points="4,52 12,44 22,38 30,42 40,28 50,22 60,26"
+            fill="none" stroke="#90EE90" stroke-width="2.5" stroke-linejoin="round"/>
+  <!-- Plano de comparación -->
+  <line x1="4" y1="56" x2="60" y2="56" stroke="#5599CC" stroke-width="1.2" stroke-dasharray="3,2"/>
+  <!-- Vértices -->
+  <circle cx="12" cy="44" r="2" fill="#FF6B6B"/>
+  <circle cx="22" cy="38" r="2" fill="#FF6B6B"/>
+  <circle cx="30" cy="42" r="2" fill="#FF6B6B"/>
+  <circle cx="40" cy="28" r="2" fill="#FF6B6B"/>
+  <circle cx="50" cy="22" r="2" fill="#FF6B6B"/>
+</svg>
