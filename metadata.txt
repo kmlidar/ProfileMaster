@@ -2,8 +2,8 @@
 name=ProfileMaster
 qgisMinimumVersion=3.16
 qgisMaximumVersion=4.99
-description=Longitudinal profiles, cross-sections, 3D axis, DTM buffer and contour lines from vector alignments over Digital Terrain Models. / Perfiles longitudinales, transversales, eje 3D, buffer MDT y curvas de nivel.
-version=1.1.0
+description=Longitudinal profiles, cross-sections, 3D axis, DTM buffer and contour lines from vector alignments or loaded QGIS layers over Digital Terrain Models. / Perfiles longitudinales, transversales, eje 3D, buffer MDT y curvas de nivel desde archivos o capas cargadas en QGIS.
+version=1.2.0
 author=Kiko Molina
 email=tu@email.com
 about=QGIS plugin to generate topographic longitudinal profiles from vector alignments
@@ -13,6 +13,7 @@ about=QGIS plugin to generate topographic longitudinal profiles from vector alig
     Automatic CRS reprojection (e.g. WGS84 axis over UTM DTM).
 
     Main features:
+    - DTM and alignment can be loaded from file/folder OR selected directly from layers already loaded in the QGIS project.
     - Smart DTM cache: scans folder once, reuses the index for subsequent runs.
     - Automatic detection of DTM tiles intersecting the alignment.
     - Bilinear interpolation of terrain elevations along the axis.
