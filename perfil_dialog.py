@@ -18,7 +18,7 @@ from qgis.PyQt.QtWidgets import (
     QLabel, QLineEdit, QPushButton, QDoubleSpinBox,
     QSpinBox, QGroupBox, QProgressBar,
     QFileDialog, QCheckBox, QMessageBox, QTabWidget, QWidget,
-    QFrame,
+    QFrame, QComboBox, QRadioButton, QButtonGroup,
 )
 from qgis.PyQt.QtCore import QThread, pyqtSignal, QUrl, QSettings
 from qgis.PyQt.QtGui import QDesktopServices
@@ -726,37 +726,96 @@ class PerfilLongitudinalDialog(QDialog):
         g1 = QGridLayout(grp1)
         g1.setSpacing(6)
 
-        g1.addWidget(QLabel("Carpeta MDTs:"), 0, 0)
+        # ── MDT: modo carpeta vs capa cargada ────────────────────────────
+        g1.addWidget(QLabel("MDT:"), 0, 0)
+        mdt_mode_row = QHBoxLayout()
+        self._rdo_mdt_folder = QRadioButton("Carpeta")
+        self._rdo_mdt_layer = QRadioButton("Capa cargada")
+        self._rdo_mdt_folder.setChecked(True)
+        self._bg_mdt = QButtonGroup(self)
+        self._bg_mdt.addButton(self._rdo_mdt_folder, 0)
+        self._bg_mdt.addButton(self._rdo_mdt_layer, 1)
+        mdt_mode_row.addWidget(self._rdo_mdt_folder)
+        mdt_mode_row.addWidget(self._rdo_mdt_layer)
+        mdt_mode_row.addStretch()
+        g1.addLayout(mdt_mode_row, 0, 1, 1, 2)
+
+        # Carpeta MDT
         self.le_folder = QLineEdit()
         self.le_folder.setPlaceholderText("Carpeta con los MDTs (GeoTIFF, ASC, IMG, BIL, FLT, DEM, HGT)")
-        g1.addWidget(self.le_folder, 0, 1)
-        b = QPushButton("…")
-        b.setMaximumWidth(32)
-        b.clicked.connect(self._browse_folder)
-        g1.addWidget(b, 0, 2)
+        g1.addWidget(self.le_folder, 1, 1)
+        self._btn_browse_folder = QPushButton("…")
+        self._btn_browse_folder.setMaximumWidth(32)
+        self._btn_browse_folder.clicked.connect(self._browse_folder)
+        g1.addWidget(self._btn_browse_folder, 1, 2)
 
-        g1.addWidget(QLabel("Eje (vectorial):"), 1, 0)
-        self.le_axis = QLineEdit()
-        self.le_axis.setPlaceholderText("DXF, SHP, KML/KMZ, GeoPackage, GML, GPX, GeoJSON")
-        g1.addWidget(self.le_axis, 1, 1)
-        b2 = QPushButton("…")
-        b2.setMaximumWidth(32)
-        b2.clicked.connect(self._browse_axis)
-        g1.addWidget(b2, 1, 2)
+        # Capa MDT (combo)
+        self._cmb_mdt_layer = QComboBox()
+        self._cmb_mdt_layer.setVisible(False)
+        g1.addWidget(self._cmb_mdt_layer, 2, 1)
+        self._btn_refresh_mdt = QPushButton("↺")
+        self._btn_refresh_mdt.setMaximumWidth(32)
+        self._btn_refresh_mdt.setToolTip("Actualizar lista de capas ráster cargadas")
+        self._btn_refresh_mdt.setVisible(False)
+        self._btn_refresh_mdt.clicked.connect(self._refresh_mdt_layers)
+        g1.addWidget(self._btn_refresh_mdt, 2, 2)
+
+        self._bg_mdt.idToggled.connect(self._toggle_mdt_mode)
 
         self.chk_rescan = QCheckBox("Forzar re-escaneo de MDTs (ignorar caché)")
-        g1.addWidget(self.chk_rescan, 2, 0, 1, 3)
+        g1.addWidget(self.chk_rescan, 3, 0, 1, 3)
 
-        g1.addWidget(QLabel("Carpeta de salida:"), 3, 0)
+        # ── Eje: modo archivo vs capa cargada ────────────────────────────
+        g1.addWidget(QLabel("Eje (vectorial):"), 4, 0)
+        eje_mode_row = QHBoxLayout()
+        self._rdo_eje_file = QRadioButton("Archivo")
+        self._rdo_eje_layer = QRadioButton("Capa cargada")
+        self._rdo_eje_file.setChecked(True)
+        self._bg_eje = QButtonGroup(self)
+        self._bg_eje.addButton(self._rdo_eje_file, 0)
+        self._bg_eje.addButton(self._rdo_eje_layer, 1)
+        eje_mode_row.addWidget(self._rdo_eje_file)
+        eje_mode_row.addWidget(self._rdo_eje_layer)
+        eje_mode_row.addStretch()
+        g1.addLayout(eje_mode_row, 4, 1, 1, 2)
+
+        # Archivo eje
+        self.le_axis = QLineEdit()
+        self.le_axis.setPlaceholderText("DXF, SHP, KML/KMZ, GeoPackage, GML, GPX, GeoJSON")
+        g1.addWidget(self.le_axis, 5, 1)
+        self._btn_browse_axis = QPushButton("…")
+        self._btn_browse_axis.setMaximumWidth(32)
+        self._btn_browse_axis.clicked.connect(self._browse_axis)
+        g1.addWidget(self._btn_browse_axis, 5, 2)
+
+        # Capa eje (combo)
+        self._cmb_eje_layer = QComboBox()
+        self._cmb_eje_layer.setVisible(False)
+        g1.addWidget(self._cmb_eje_layer, 6, 1)
+        self._btn_refresh_eje = QPushButton("↺")
+        self._btn_refresh_eje.setMaximumWidth(32)
+        self._btn_refresh_eje.setToolTip("Actualizar lista de capas vectoriales cargadas")
+        self._btn_refresh_eje.setVisible(False)
+        self._btn_refresh_eje.clicked.connect(self._refresh_eje_layers)
+        g1.addWidget(self._btn_refresh_eje, 6, 2)
+
+        self._bg_eje.idToggled.connect(self._toggle_eje_mode)
+
+        # ── Carpeta de salida ─────────────────────────────────────────────
+        g1.addWidget(QLabel("Carpeta de salida:"), 7, 0)
         self.le_outdir = QLineEdit()
         self.le_outdir.setPlaceholderText("Carpeta donde se guardarán los archivos generados")
-        g1.addWidget(self.le_outdir, 3, 1)
+        g1.addWidget(self.le_outdir, 7, 1)
         b3 = QPushButton("…")
         b3.setMaximumWidth(32)
         b3.clicked.connect(self._browse_outdir)
-        g1.addWidget(b3, 3, 2)
+        g1.addWidget(b3, 7, 2)
 
         main.addWidget(grp1)
+
+        # Populate layer combos on startup
+        self._refresh_mdt_layers()
+        self._refresh_eje_layers()
 
         # ── Pestañas ──────────────────────────────────────────────────────
         self.tabs = QTabWidget()
@@ -1240,28 +1299,122 @@ class PerfilLongitudinalDialog(QDialog):
             self.le_outdir.setText(path)
 
     # ─────────────────────────────────────────────────────────────────────────
+    #  Capas cargadas en QGIS
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _toggle_mdt_mode(self, btn_id, checked):
+        """Alterna entre modo carpeta y capa cargada para el MDT."""
+        if not checked:
+            return
+        use_layer = (btn_id == 1)
+        self.le_folder.setVisible(not use_layer)
+        self._btn_browse_folder.setVisible(not use_layer)
+        self._cmb_mdt_layer.setVisible(use_layer)
+        self._btn_refresh_mdt.setVisible(use_layer)
+        # La caché no aplica cuando se usa una capa ya cargada
+        self.chk_rescan.setEnabled(not use_layer)
+
+    def _toggle_eje_mode(self, btn_id, checked):
+        """Alterna entre modo archivo y capa cargada para el eje."""
+        if not checked:
+            return
+        use_layer = (btn_id == 1)
+        self.le_axis.setVisible(not use_layer)
+        self._btn_browse_axis.setVisible(not use_layer)
+        self._cmb_eje_layer.setVisible(use_layer)
+        self._btn_refresh_eje.setVisible(use_layer)
+
+    def _refresh_mdt_layers(self):
+        """Rellena el combo con las capas ráster cargadas en el proyecto QGIS."""
+        try:
+            from qgis.core import QgsProject, QgsMapLayer
+        except ImportError:
+            return
+        self._cmb_mdt_layer.clear()
+        project = QgsProject.instance()
+        for layer in project.mapLayers().values():
+            if layer.type() == QgsMapLayer.RasterLayer:
+                source = layer.source().split("|")[0]
+                self._cmb_mdt_layer.addItem(layer.name(), source)
+        if self._cmb_mdt_layer.count() == 0:
+            self._cmb_mdt_layer.addItem("(no hay capas ráster cargadas)", "")
+
+    def _refresh_eje_layers(self):
+        """Rellena el combo con las capas vectoriales lineales cargadas en QGIS."""
+        try:
+            from qgis.core import QgsProject, QgsMapLayer, QgsWkbTypes
+        except ImportError:
+            return
+        self._cmb_eje_layer.clear()
+        project = QgsProject.instance()
+        for layer in project.mapLayers().values():
+            if layer.type() == QgsMapLayer.VectorLayer:
+                geom_type = layer.geometryType()
+                # 1 = Line geometry type in QGIS
+                if geom_type == QgsWkbTypes.LineGeometry:
+                    source = layer.source().split("|")[0]
+                    self._cmb_eje_layer.addItem(layer.name(), source)
+        if self._cmb_eje_layer.count() == 0:
+            self._cmb_eje_layer.addItem("(no hay capas lineales cargadas)", "")
+
+    def _get_mdt_folder(self):
+        """Devuelve la carpeta MDT según el modo seleccionado."""
+        if self._rdo_mdt_layer.isChecked():
+            # Cuando la fuente es una capa, devolvemos la carpeta que la contiene
+            source = self._cmb_mdt_layer.currentData() or ""
+            if source:
+                return os.path.dirname(source)
+            return ""
+        return self.le_folder.text().strip()
+
+    def _get_axis_path(self):
+        """Devuelve la ruta del eje según el modo seleccionado."""
+        if self._rdo_eje_layer.isChecked():
+            return self._cmb_eje_layer.currentData() or ""
+        return self.le_axis.text().strip()
+
+    # ─────────────────────────────────────────────────────────────────────────
     #  Validación
     # ─────────────────────────────────────────────────────────────────────────
 
     def _validate(self):
-        folder = self.le_folder.text().strip()
-        axis = self.le_axis.text().strip()
+        folder = self._get_mdt_folder()
+        axis = self._get_axis_path()
         outdir = self.le_outdir.text().strip()
 
-        if not folder:
-            QMessageBox.warning(self, "Falta dato", "Especifica la carpeta de MDTs.")
-            return False
-        if not os.path.isdir(folder):
-            QMessageBox.warning(self, "Carpeta no válida",
-                                f"La carpeta de MDTs no existe:\n{folder}")
-            return False
-        if not axis:
-            QMessageBox.warning(self, "Falta dato", "Especifica el archivo de eje.")
-            return False
-        if not os.path.isfile(axis):
-            QMessageBox.warning(self, "Archivo no válido",
-                                f"El archivo de eje no existe:\n{axis}")
-            return False
+        # Validación MDT
+        if self._rdo_mdt_layer.isChecked():
+            mdt_source = self._cmb_mdt_layer.currentData() or ""
+            if not mdt_source:
+                QMessageBox.warning(self, "Falta dato",
+                                    "No hay ninguna capa ráster (MDT) cargada en QGIS.\n"
+                                    "Carga el MDT en el proyecto o usa el modo 'Carpeta'.")
+                return False
+        else:
+            if not folder:
+                QMessageBox.warning(self, "Falta dato", "Especifica la carpeta de MDTs.")
+                return False
+            if not os.path.isdir(folder):
+                QMessageBox.warning(self, "Carpeta no válida",
+                                    f"La carpeta de MDTs no existe:\n{folder}")
+                return False
+
+        # Validación eje
+        if self._rdo_eje_layer.isChecked():
+            eje_source = self._cmb_eje_layer.currentData() or ""
+            if not eje_source:
+                QMessageBox.warning(self, "Falta dato",
+                                    "No hay ninguna capa vectorial lineal cargada en QGIS.\n"
+                                    "Carga el eje en el proyecto o usa el modo 'Archivo'.")
+                return False
+        else:
+            if not axis:
+                QMessageBox.warning(self, "Falta dato", "Especifica el archivo de eje.")
+                return False
+            if not os.path.isfile(axis):
+                QMessageBox.warning(self, "Archivo no válido",
+                                    f"El archivo de eje no existe:\n{axis}")
+                return False
         if not outdir:
             QMessageBox.warning(self, "Falta dato", "Especifica la carpeta de salida.")
             return False
@@ -1352,7 +1505,7 @@ class PerfilLongitudinalDialog(QDialog):
 
         cp = None if self.chk_cplane_auto.isChecked() else self.sp_cplane.value()
         outdir = self.le_outdir.text().strip()
-        axis_path = self.le_axis.text().strip()
+        axis_path = self._get_axis_path()
 
         n_profiles = _count_profiles_in_file(axis_path)
         profile_base = _next_profile_name(outdir)
@@ -1363,7 +1516,7 @@ class PerfilLongitudinalDialog(QDialog):
 
         params = {
             # Entrada
-            'folder': self.le_folder.text().strip(),
+            'folder': self._get_mdt_folder(),
             'axis_path': axis_path,
             'output_dir': outdir,
             'profile_base': profile_base,
