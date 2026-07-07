@@ -3,7 +3,7 @@ name=ProfileMaster
 qgisMinimumVersion=3.16
 qgisMaximumVersion=4.99
 description=Longitudinal profiles, cross-sections, 3D axis, DTM buffer and contour lines from vector alignments or loaded QGIS layers over Digital Terrain Models. / Perfiles longitudinales, transversales, eje 3D, buffer MDT y curvas de nivel desde archivos o capas cargadas en QGIS.
-version=1.2.0
+version=1.3.0
 author=Kiko Molina
 email=tu@email.com
 about=QGIS plugin to generate topographic longitudinal profiles from vector alignments
@@ -30,10 +30,28 @@ about=QGIS plugin to generate topographic longitudinal profiles from vector alig
       plus optional clean 3D polyline draped on DTM at segmentation interval.
     - DTM buffer export: GeoTIFF clipped to alignment bounding box + buffer, LZW-compressed.
     - Contour lines: DXF with normal and master contours, Chaikin smoothing,
-      and minimum-length filter to suppress tiny closed contours.
+      optional Douglas-Peucker vertex simplification (configurable tolerance)
+      to keep straight stretches lightweight, and minimum-length filter to
+      suppress tiny closed contours.
 
 tracker=https://github.com/kmlidar/ProfileMaster/issues
 repository=https://github.com/kmlidar/ProfileMaster
+changelog=1.3.0
+    - Corregido: al generar curvas de nivel sin tener activa la pestaña
+      'Buffer MDT', se guardaba de todos modos el MDT recortado
+      (mdt_buffer.tif) en la carpeta de salida. Ahora ese recorte se genera
+      SOLO en un archivo temporal del sistema, se usa exclusivamente para
+      calcular las curvas y se borra automáticamente al terminar (incluido
+      su posible sidecar .aux.xml de estadísticas); si 'Buffer MDT' no está
+      marcado, ningún GeoTIFF queda guardado en disco.
+    - Corregido: al calcular ese MDT temporal fallaba con "RuntimeError: No
+      se puede sobrescribir [...]. El archivo está abierto en QGIS (como
+      capa) o bloqueado por otro programa", aunque no estuviera abierto en
+      ningún sitio. La causa real: tempfile creaba el .tif temporal vacío
+      (0 bytes) al reservar el nombre, y el borrado previo con el driver
+      GDAL fallaba por no reconocerlo como GeoTIFF válido, reportándose
+      como "bloqueado" por error.
+
 tags=DTM, DEM, MDT, longitudinal profile, cross section, transversal, contour, contour lines, curvas de nivel, DXF, SHP, KML, GeoTIFF, terrain, topography, alignment, road profile, perfil longitudinal, trazado, 3D axis, profile
 homepage=https://github.com/kmlidar/ProfileMaster
 donate=https://www.paypal.com/donate/?hosted_button_id=UF9SYUY42GWTG

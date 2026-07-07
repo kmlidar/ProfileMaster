@@ -219,14 +219,24 @@ def export_mdt_buffer(
     # en vez de dejar que falle dentro de gdal.Warp con un RuntimeError
     # críptico de "Permission denied".
     if os.path.exists(output_path):
+        # Se intenta primero un borrado simple con os.remove(): funciona
+        # igual para un GeoTIFF real que para un archivo vacío de 0 bytes
+        # (p.ej. el creado por tempfile.mkstemp() al reservar el nombre del
+        # temporal para las curvas de nivel). El driver GDAL, en cambio,
+        # necesita reconocer el archivo como GeoTIFF válido para borrarlo;
+        # con un archivo vacío o corrupto falla aunque NO esté bloqueado,
+        # lo que antes se reportaba erróneamente como "bloqueado por QGIS".
         try:
-            gdal.GetDriverByName('GTiff').Delete(output_path)
-        except Exception:
-            raise RuntimeError(
-                f"No se puede sobrescribir '{output_path}'.\n"
-                "El archivo está abierto en QGIS (como capa) o bloqueado por "
-                "otro programa. Cierra la capa/archivo e inténtalo de nuevo."
-            )
+            os.remove(output_path)
+        except OSError:
+            try:
+                gdal.GetDriverByName('GTiff').Delete(output_path)
+            except Exception:
+                raise RuntimeError(
+                    f"No se puede sobrescribir '{output_path}'.\n"
+                    "El archivo está abierto en QGIS (como capa) o bloqueado por "
+                    "otro programa. Cierra la capa/archivo e inténtalo de nuevo."
+                )
 
     # Warp con cutline (recorte por la forma real del buffer)
     warp_opts = gdal.WarpOptions(
@@ -266,6 +276,108 @@ def export_mdt_buffer(
         progress_callback(100, f"MDT exportado: {os.path.basename(output_path)}")
 
     return output_path
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Simplificado de curvas (Ramer-Douglas-Peucker)
+# ─────────────────────────────────────────────────────────────────────────────
+#  GDAL ContourGenerate genera prácticamente un vértice por cada celda del
+#  ráster que la curva atraviesa. Eso produce DXF mucho más pesados que los
+#  de programas como Global Mapper, que aplican su propia reducción de
+#  vértices por defecto. Esta función quita vértices redundantes en los
+#  tramos rectos (donde el punto intermedio no se aleja más de `tolerance`
+#  de la línea que une sus vecinos), sin cambiar la forma de la curva más
+#  allá de esa tolerancia. Al ser conservador con la tolerancia (pensada en
+#  metros, normalmente una fracción de la equidistancia) el resultado no
+#  arriesga a que curvas adyacentes lleguen a tocarse o cruzarse.
+
+def _perpendicular_distance(pt, line_start, line_end):
+    x0, y0 = pt
+    x1, y1 = line_start
+    x2, y2 = line_end
+    dx, dy = x2 - x1, y2 - y1
+    if dx == 0 and dy == 0:
+        return math.hypot(x0 - x1, y0 - y1)
+    t = ((x0 - x1) * dx + (y0 - y1) * dy) / (dx * dx + dy * dy)
+    t = max(0.0, min(1.0, t))
+    proj_x = x1 + t * dx
+    proj_y = y1 + t * dy
+    return math.hypot(x0 - proj_x, y0 - proj_y)
+
+
+def _rdp_simplify(pts, tolerance):
+    """
+    Simplificación de Douglas-Peucker, versión iterativa (evita
+    RecursionError en curvas largas con miles de vértices). Conserva
+    siempre el primer y el último punto de la polilínea (o, si la curva es
+    cerrada, el punto de cierre).
+    """
+    n = len(pts)
+    if n < 3 or tolerance <= 0:
+        return pts
+
+    keep = bytearray(n)
+    keep[0] = 1
+    keep[-1] = 1
+
+    # Pila de segmentos (índice inicial, índice final) pendientes de revisar
+    stack = [(0, n - 1)]
+    while stack:
+        start, end = stack.pop()
+        if end <= start + 1:
+            continue
+        p_start, p_end = pts[start], pts[end]
+        max_dist = -1.0
+        max_idx = -1
+        for i in range(start + 1, end):
+            d = _perpendicular_distance(pts[i], p_start, p_end)
+            if d > max_dist:
+                max_dist = d
+                max_idx = i
+        if max_dist > tolerance:
+            keep[max_idx] = 1
+            stack.append((start, max_idx))
+            stack.append((max_idx, end))
+
+    return [pt for i, pt in enumerate(pts) if keep[i]]
+
+
+def _polyline_bbox(pts, pad=0.0):
+    xs = [p[0] for p in pts]
+    ys = [p[1] for p in pts]
+    return (min(xs) - pad, min(ys) - pad, max(xs) + pad, max(ys) + pad)
+
+
+def _bbox_overlap(a, b):
+    return not (a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1])
+
+
+def _pts_to_ogr_line(pts):
+    line = ogr.Geometry(ogr.wkbLineString)
+    for x, y in pts:
+        line.AddPoint(x, y)
+    return line
+
+
+def _crosses_any(pts, others):
+    """
+    others: lista de (bbox, geometria_ogr) de curvas ya finalizadas (en la
+    práctica, las del nivel de cota adyacente anterior). Devuelve True si
+    `pts` llega a cruzar alguna de ellas. El filtro por bounding box evita
+    construir/():comparar geometrías OGR salvo cuando de verdad podrían tocarse.
+    """
+    if not others:
+        return False
+    bbox = _polyline_bbox(pts)
+    line = None
+    for other_bbox, other_geom in others:
+        if not _bbox_overlap(bbox, other_bbox):
+            continue
+        if line is None:
+            line = _pts_to_ogr_line(pts)
+        if line.Intersects(other_geom):
+            return True
+    return False
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -324,6 +436,8 @@ def export_curvas_nivel(
     equidistancia_maestra=5.0,
     smooth_iterations=2,
     min_longitud=30.0,
+    simplify=True,
+    simplify_tolerance=0.25,
     progress_callback=None,
 ):
     """
@@ -341,6 +455,18 @@ def export_curvas_nivel(
                                     las curvas cerradas o abiertas más cortas se
                                     descartan para evitar minicurvas antiestéticas.
                                     Valor 0 = exportar todas (sin filtro).
+    simplify              : bool  — reducir vértices redundantes en tramos rectos
+                                    (Douglas-Peucker) antes del suavizado. GDAL
+                                    ContourGenerate produce casi un vértice por
+                                    píxel; esta opción reduce mucho el peso del
+                                    DXF sin alterar visualmente las curvas.
+                                    Incluye un control anti-solape: si la curva
+                                    simplificada llegara a tocar a la de la cota
+                                    adyacente, se reintenta con menos tolerancia
+                                    (o se exporta sin simplificar como último
+                                    recurso) para que nunca se crucen entre sí.
+    simplify_tolerance    : float — tolerancia (m) del simplificado: desviación
+                                    máxima permitida al eliminar un vértice.
     progress_callback     : callable(pct, msg)
     """
     if not os.path.exists(geotiff_path):
@@ -396,8 +522,8 @@ def export_curvas_nivel(
     msp = doc.modelspace()
 
     for lname, color, lw in [
-        ('CURVAS_NORMALES', 3, 13),
-        ('CURVAS_MAESTRAS', 1, 40),
+        ('CURVAS_NORMALES', 33, 13),
+        ('CURVAS_MAESTRAS', 15, 40),
         ('CURVAS_TEXTOS', 7, 0),
     ]:
         lay = doc.layers.new(lname)
@@ -417,6 +543,13 @@ def export_curvas_nivel(
 
     mem_driver = ogr.GetDriverByName('Memory')
 
+    # Curvas ya finalizadas del nivel de cota anterior (el inmediatamente
+    # adyacente, ya que `levels` es una secuencia equidistante y ascendente).
+    # Se usa para el control anti-solape: una curva simplificada nunca debería
+    # cruzar a la del nivel de al lado, así que solo hace falta comparar con
+    # este nivel, no con todas las curvas generadas hasta el momento.
+    prev_level_geoms = []
+
     n_levels = len(levels)
     for i, level in enumerate(levels):
         if progress_callback and i % max(1, n_levels // 30) == 0:
@@ -430,7 +563,7 @@ def export_curvas_nivel(
         )
         is_maestra = nearest_diff < equidistancia * 0.01
         dxf_layer = 'CURVAS_MAESTRAS' if is_maestra else 'CURVAS_NORMALES'
-        color = 1 if is_maestra else 3
+        color = 15 if is_maestra else 33
 
         # ContourGenerate sobre un layer temporal en memoria
         tmp_ds = mem_driver.CreateDataSource('tmp')
@@ -451,6 +584,7 @@ def export_curvas_nivel(
         )
 
         tmp_lyr.ResetReading()
+        cur_level_geoms = []
         for feat in tmp_lyr:
             geom = feat.GetGeometryRef()
             if geom is None:
@@ -476,27 +610,90 @@ def export_curvas_nivel(
                     if lon < min_longitud:
                         return
 
-                # Suavizado Chaikin
-                if smooth_iterations > 0:
+                # ── Simplificado (reducción de vértices) + control anti-solape ──
+                # Se aplica ANTES del suavizado: elimina los vértices que GDAL
+                # añade por cada píxel cruzado en los tramos donde la curva es
+                # prácticamente recta, sin cambiar su forma más allá de la
+                # tolerancia indicada. Por construcción, dos curvas no se
+                # cruzan en los datos originales (ni entre cotas distintas ni
+                # dos anillos de la misma cota); pero al simplificar cada una
+                # por separado, una tolerancia demasiado alta sí podría hacer
+                # que una invada el hueco de la cota adyacente, o que dos
+                # anillos de la MISMA cota (p.ej. a ambos lados de un collado)
+                # lleguen a tocarse entre sí. Por eso se comprueba contra las
+                # curvas ya finalizadas de la cota anterior Y contra las de
+                # esta misma cota ya procesadas: si llegan a tocarse, se
+                # reintenta con una tolerancia menor, y en el peor caso se
+                # exporta sin simplificar (igual que se hacía antes de esta
+                # opción).
+                if simplify and len(pts) > 2:
+                    tol = simplify_tolerance
+                    final_pts = None
+                    for _attempt in range(6):
+                        candidate = _rdp_simplify(pts, tol)
+                        if smooth_iterations > 0:
+                            candidate = _chaikin_smooth(candidate, smooth_iterations)
+                        neighbours = prev_level_geoms + cur_level_geoms
+                        if not _crosses_any(candidate, neighbours):
+                            final_pts = candidate
+                            break
+                        tol *= 0.3
+                    if final_pts is None:
+                        # Último recurso: sin simplificar, con suavizado.
+                        final_pts = pts
+                        if smooth_iterations > 0:
+                            final_pts = _chaikin_smooth(final_pts, smooth_iterations)
+                        neighbours = prev_level_geoms + cur_level_geoms
+                        if _crosses_any(final_pts, neighbours):
+                            # Último recurso de verdad: ni simplificado ni
+                            # suavizado (el propio Chaikin, al recortar
+                            # esquinas, puede acercar dos curvas ya muy
+                            # próximas en terreno muy escarpado).
+                            final_pts = pts
+                    pts = final_pts
+                elif smooth_iterations > 0:
                     pts = _chaikin_smooth(pts, smooth_iterations)
 
+                cur_level_geoms.append((_polyline_bbox(pts), _pts_to_ogr_line(pts)))
+
+                # La 'elevation' del LWPOLYLINE fija el plano Z de la curva
+                # completa (todas sus cotas son iguales, por definición de
+                # curva de nivel), así en las propiedades del objeto en
+                # AutoCAD aparece la cota real en vez de 0.
                 msp.add_lwpolyline(
                     pts,
-                    dxfattribs={'layer': dxf_layer, 'color': color}
+                    dxfattribs={'layer': dxf_layer, 'color': color, 'elevation': level}
                 )
                 # Etiqueta cota en maestras
                 if is_maestra:
                     mi = len(pts) // 2
                     mx, my = pts[mi]
+
+                    # Ángulo de la curva en el punto de la etiqueta, para que
+                    # el texto siga la inclinación local de la curva (como
+                    # antes) en vez de ir siempre en horizontal.
+                    i0 = max(0, mi - 1)
+                    i1 = min(len(pts) - 1, mi + 1)
+                    dx = pts[i1][0] - pts[i0][0]
+                    dy = pts[i1][1] - pts[i0][1]
+                    angle = math.degrees(math.atan2(dy, dx)) if (dx or dy) else 0.0
+                    # Se pliega a [-90, 90] para que el texto no quede
+                    # cabeza abajo cuando la curva va "hacia atrás".
+                    if angle > 90:
+                        angle -= 180
+                    elif angle < -90:
+                        angle += 180
+
                     t_elev = msp.add_text(
                         f"{level:.1f}",
                         dxfattribs={
                             'height': 1.5,
                             'layer': 'CURVAS_TEXTOS',
-                            'color': 1,
+                            'color': 15,
+                            'rotation': angle,
                         }
                     )
-                    t_elev.set_placement((mx, my), align=TEA.MIDDLE_CENTER)
+                    t_elev.set_placement((mx, my, level), align=TEA.MIDDLE_CENTER)
 
             gt_flat = ogr.GT_Flatten(geom.GetGeometryType())
             if gt_flat == ogr.wkbLineString:
@@ -506,6 +703,12 @@ def export_curvas_nivel(
                     _add_geom(geom.GetGeometryRef(si))
 
         tmp_ds = None
+        # Si el nivel entero se quedó sin curvas (p.ej. todas descartadas por
+        # el filtro de longitud mínima), NO se pisa el histórico: se
+        # conserva el último nivel con curvas reales para que el control
+        # anti-solape del siguiente nivel no se quede "ciego".
+        if cur_level_geoms:
+            prev_level_geoms = cur_level_geoms
 
     ds = None
 
